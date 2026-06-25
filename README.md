@@ -9,6 +9,8 @@ describe a goal and **Claude** breaks it into task cards for you.
 - **Generate tasks with Claude** — type a high-level goal, get actionable cards in "To Do".
   Each generated card is rich: a **phase** number, an **estimated effort** (token count),
   a detailed description, and a step-by-step **dev strategy** (shown under "Details")
+- **Import from Claude Code** — reconstruct what you've already worked on from your
+  local Claude Code history and drop it into "Done" as cards. No API key required
 - Persists across restarts (no database setup required)
 
 ## Tech stack
@@ -80,6 +82,26 @@ Each generated task is returned with `title`, `body` (summary), `details`,
 `devStrategy`, `iteration` (phase number), and `estimatedTokens` (Claude's effort
 estimate). These rich fields appear only on Claude-generated cards; manually-added
 cards stay simple (title + body).
+
+## Import from Claude Code
+
+The **Import from Claude Code** button reconstructs what you've worked on from
+Claude Code's local transcripts and adds it to the board — **no API key, fully
+offline**.
+
+- Reads `~/.claude/projects/*/*.jsonl` (every Claude Code project on the machine).
+- Groups the assistant's file edits and meaningful commands under the human prompt
+  that triggered them, producing one card per **work item**.
+- Filters out non-human "user" messages (injected skill/tool text and the harness's
+  "Continue from where you left off" nudges) so titles reflect what you actually asked.
+- Adds cards to **Done** (it's already-completed work) and **dedupes** on re-import
+  via a stable `sourceKey`, so clicking it again won't create duplicates.
+
+It reflects history on whatever machine runs the app, so run it locally to see your
+real work. Parsing logic lives in `src/lib/claudeCode.ts`.
+
+> Note: transcripts can contain sensitive content — this is a local dev convenience,
+> not something to expose on a public deployment.
 
 ## Data persistence
 

@@ -91,6 +91,7 @@ export async function createCards(
     devStrategy?: string;
     iteration?: number;
     estimatedTokens?: number;
+    sourceKey?: string;
   }[],
   column: ColumnId,
 ): Promise<Card[]> {
@@ -108,6 +109,7 @@ export async function createCards(
       devStrategy: item.devStrategy,
       iteration: item.iteration,
       estimatedTokens: item.estimatedTokens,
+      sourceKey: item.sourceKey,
       column,
       position: pos,
       createdAt: now(),
@@ -116,6 +118,14 @@ export async function createCards(
   });
   await persist([...cards, ...created]);
   return created;
+}
+
+/** The set of sourceKeys already present (for import dedup). */
+export async function existingSourceKeys(): Promise<Set<string>> {
+  const cards = await load();
+  return new Set(
+    cards.map((c) => c.sourceKey).filter((k): k is string => Boolean(k)),
+  );
 }
 
 /** Edit a card's text fields. */

@@ -17,6 +17,7 @@ import { COLUMNS, isColumnId, type ColumnId } from "@/lib/columns";
 import type { Card } from "@/lib/types";
 import Column from "./Column";
 import GenerateWithClaude from "./GenerateWithClaude";
+import ImportFromClaudeCode from "./ImportFromClaudeCode";
 
 type Props = { initialCards: Card[] };
 
@@ -171,6 +172,10 @@ export default function Board({ initialCards }: Props) {
     setCards((prev) => [...prev, ...newCards]);
   }
 
+  function handleImported(newCards: Card[]) {
+    setCards((prev) => [...prev, ...newCards]);
+  }
+
   const activeCard = activeId
     ? cards.find((c) => c.id === activeId) ?? null
     : null;
@@ -178,6 +183,7 @@ export default function Board({ initialCards }: Props) {
   return (
     <>
       <GenerateWithClaude onGenerated={handleGenerated} />
+      <ImportFromClaudeCode onImported={handleImported} />
 
       <DndContext
         sensors={sensors}

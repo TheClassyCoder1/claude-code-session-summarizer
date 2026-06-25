@@ -14,4 +14,5 @@ export type Card = {
   devStrategy?: string; // detailed development approach
   iteration?: number; // phase number grouping the work (1, 2, 3…)
   estimatedTokens?: number; // Claude-estimated effort, as a token count
+  sourceKey?: string; // stable id for cards imported from Claude Code (dedup)
 };
