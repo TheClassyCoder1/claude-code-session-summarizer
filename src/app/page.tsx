@@ -1,12 +1,18 @@
 import FeatureDashboard from "@/components/FeatureDashboard";
 import AutoRefresh from "@/components/AutoRefresh";
+import TabBadge from "@/components/TabBadge";
 import { readFeatureRecords } from "@/lib/featureLog";
+import { deriveStatus } from "@/lib/featureTypes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const records = await readFeatureRecords();
+  const attention = records.filter((r) => {
+    const s = deriveStatus(r);
+    return s === "awaiting_approval" || s === "idle";
+  }).length;
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -20,6 +26,7 @@ export default async function Home() {
         <FeatureDashboard records={records} />
       </div>
       <AutoRefresh />
+      <TabBadge count={attention} />
     </main>
   );
 }
