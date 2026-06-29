@@ -51,6 +51,23 @@ function hasOurHook(arr) {
   );
 }
 
+// Remove our command from any event we no longer register (renames/removals),
+// leaving other tools' hooks intact. Mutates `hooks`; returns pruned event names.
+export function pruneStaleHooks(hooks, command, keepEvents) {
+  const pruned = [];
+  for (const event of Object.keys(hooks)) {
+    if (keepEvents.includes(event) || !Array.isArray(hooks[event])) continue;
+    const before = hooks[event].length;
+    hooks[event] = hooks[event].filter(
+      (e) => !(Array.isArray(e?.hooks) && e.hooks.some((h) => h?.command === command)),
+    );
+    if (hooks[event].length === before) continue;
+    pruned.push(event);
+    if (hooks[event].length === 0) delete hooks[event]; // we emptied it → drop
+  }
+  return pruned;
+}
+
 function main() {
   // 1. Copy the script.
   fs.mkdirSync(destDir, { recursive: true });
@@ -94,6 +111,12 @@ function main() {
     }
   }
 
+  // 3b. Prune our hook from any event we no longer register.
+  for (const event of pruneStaleHooks(settings.hooks, HOOK_COMMAND, HOOK_EVENTS)) {
+    changed = true;
+    log(`✓ ${event}: removed stale feature-logger hook`);
+  }
+
   // 4. Write atomically.
   if (changed) {
     try {
@@ -108,7 +131,7 @@ function main() {
       log("  Add the hooks manually — see tools/feature-logger/README.md.");
     }
   } else {
-    log("\nNothing to change — hooks already installed.");
+    log("\nScript updated to latest; hook registrations already in sync.");
   }
 }
 
