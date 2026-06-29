@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "claude-code-summarizer",
+  title: "Claude Session Dashboard",
   description: "A dashboard of what you built with Claude Code — per session, with token usage and cost.",
 };
 

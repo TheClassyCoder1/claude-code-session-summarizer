@@ -7,7 +7,7 @@ import { useEffect } from "react";
 // RSC refresh (AutoRefresh) since `count` is recomputed server-side per render.
 export default function TabBadge({
   count,
-  base = "claude-code-summarizer",
+  base = "Claude Session Dashboard",
 }: {
   count: number;
   base?: string;
