@@ -49,6 +49,11 @@ Re-run it (or `npm run hooks`) to **update**: it always re-copies the latest scr
 any new hook events, and prunes events it no longer registers — other tools' hooks are
 left intact.
 
+The same installer also copies `tools/approval-gate/approval-gate.mjs` and registers it
+on `PreToolUse`. That hook only acts in **Dashboard mode** (the `~/.claude/feature-log/mode.json`
+flag, default `cli` = no-op); in Dashboard mode it routes gated-tool permission prompts to
+the dashboard, falling back to the terminal prompt on timeout.
+
 ## Manual install
 
 If the installer can't write `~/.claude/settings.json` (e.g. a managed/cloud container),

@@ -11,8 +11,10 @@ import {
   type ViewBy,
 } from "@/lib/featureTypes";
 import { formatTokens, formatUsd } from "@/lib/format";
+import type { PendingApproval } from "@/lib/approvals";
 import StatsHeader from "./StatsHeader";
 import FeatureItem from "./FeatureItem";
+import PendingApprovalCard from "./PendingApproval";
 
 const SECTION_ORDER = (Object.keys(STATUS_META) as Status[]).sort(
   (a, b) => STATUS_META[a].order - STATUS_META[b].order,
@@ -23,7 +25,26 @@ const VIEWS: { id: ViewBy; label: string }[] = [
   { id: "project", label: "Project" },
 ];
 
-function StatusSections({ records }: { records: FeatureRecord[] }) {
+type PendingMap = Record<string, PendingApproval>;
+
+// A record card plus, if the session is paused on a permission prompt, its
+// Approve/Deny panel. Used by every view so pending shows wherever a card does.
+function RecordCard({ record, pending }: { record: FeatureRecord; pending?: PendingApproval }) {
+  return (
+    <div>
+      <FeatureItem record={record} />
+      {pending && <PendingApprovalCard pending={pending} />}
+    </div>
+  );
+}
+
+function StatusSections({
+  records,
+  pendingBySession,
+}: {
+  records: FeatureRecord[];
+  pendingBySession: PendingMap;
+}) {
   const groups = Object.fromEntries(
     SECTION_ORDER.map((s) => [s, [] as FeatureRecord[]]),
   ) as Record<Status, FeatureRecord[]>;
@@ -45,7 +66,11 @@ function StatusSections({ records }: { records: FeatureRecord[] }) {
             </div>
             <div className="space-y-3">
               {items.map((r) => (
-                <FeatureItem key={`${r.projectPath}:${r.sessionId}`} record={r} />
+                <RecordCard
+                  key={`${r.projectPath}:${r.sessionId}`}
+                  record={r}
+                  pending={pendingBySession[r.sessionId]}
+                />
               ))}
             </div>
           </section>
@@ -55,7 +80,15 @@ function StatusSections({ records }: { records: FeatureRecord[] }) {
   );
 }
 
-function GroupedView({ records, by }: { records: FeatureRecord[]; by: "session" | "project" }) {
+function GroupedView({
+  records,
+  by,
+  pendingBySession,
+}: {
+  records: FeatureRecord[];
+  by: "session" | "project";
+  pendingBySession: PendingMap;
+}) {
   const groups = useMemo(() => groupRecords(records, by), [records, by]);
   return (
     <div className="space-y-6">
@@ -72,7 +105,11 @@ function GroupedView({ records, by }: { records: FeatureRecord[]; by: "session" 
           </div>
           <div className="space-y-3">
             {g.records.map((r) => (
-              <FeatureItem key={`${r.projectPath}:${r.sessionId}`} record={r} />
+              <RecordCard
+                key={`${r.projectPath}:${r.sessionId}`}
+                record={r}
+                pending={pendingBySession[r.sessionId]}
+              />
             ))}
           </div>
         </section>
@@ -81,7 +118,13 @@ function GroupedView({ records, by }: { records: FeatureRecord[]; by: "session" 
   );
 }
 
-export default function FeatureDashboard({ records }: { records: FeatureRecord[] }) {
+export default function FeatureDashboard({
+  records,
+  pendingBySession = {},
+}: {
+  records: FeatureRecord[];
+  pendingBySession?: PendingMap;
+}) {
   const projects = useMemo(
     () => [...new Set(records.map((r) => r.projectName))].sort(),
     [records],
@@ -150,9 +193,9 @@ export default function FeatureDashboard({ records }: { records: FeatureRecord[]
       </div>
 
       {view === "feature" ? (
-        <StatusSections records={filtered} />
+        <StatusSections records={filtered} pendingBySession={pendingBySession} />
       ) : (
-        <GroupedView records={filtered} by={view} />
+        <GroupedView records={filtered} by={view} pendingBySession={pendingBySession} />
       )}
     </div>
   );

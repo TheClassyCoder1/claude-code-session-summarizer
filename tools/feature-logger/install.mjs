@@ -15,12 +15,12 @@ import os from "os";
 import { fileURLToPath } from "url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const toolsDir = path.resolve(here, ".."); // repo tools/ dir
 const claudeDir = path.join(os.homedir(), ".claude");
-const destDir = path.join(claudeDir, "feature-logger");
-const destScript = path.join(destDir, "feature-logger.mjs");
 const settingsPath = path.join(claudeDir, "settings.json");
-// The command Claude Code will run. ~ is expanded by Claude Code.
+// The commands Claude Code will run. ~ is expanded by Claude Code.
 const HOOK_COMMAND = "~/.claude/feature-logger/feature-logger.mjs";
+const AG_COMMAND = "~/.claude/approval-gate/approval-gate.mjs";
 
 export const HOOK_EVENTS = [
   "SessionStart",
@@ -31,23 +31,39 @@ export const HOOK_EVENTS = [
   "SessionEnd",
 ];
 
+// Each hook script: which repo file to copy, where to, its command, and the
+// events it registers. Prune runs per-command against its own event set, so the
+// two scripts never step on each other.
+export const INSTALLS = [
+  {
+    command: HOOK_COMMAND,
+    events: HOOK_EVENTS,
+    src: "feature-logger/feature-logger.mjs",
+    dest: path.join(claudeDir, "feature-logger", "feature-logger.mjs"),
+  },
+  {
+    command: AG_COMMAND,
+    events: ["PreToolUse"],
+    src: "approval-gate/approval-gate.mjs",
+    dest: path.join(claudeDir, "approval-gate", "approval-gate.mjs"),
+  },
+];
+
 function log(msg) {
   process.stdout.write(`${msg}\n`);
 }
 
-function hookEntry() {
+function hookEntry(command) {
   return {
     matcher: "",
-    hooks: [{ type: "command", command: HOOK_COMMAND, timeout: 60 }],
+    hooks: [{ type: "command", command, timeout: 60 }],
   };
 }
 
-function hasOurHook(arr) {
+function hasOurHook(arr, command) {
   return (
     Array.isArray(arr) &&
-    arr.some(
-      (e) => Array.isArray(e?.hooks) && e.hooks.some((h) => h?.command === HOOK_COMMAND),
-    )
+    arr.some((e) => Array.isArray(e?.hooks) && e.hooks.some((h) => h?.command === command))
   );
 }
 
@@ -69,15 +85,17 @@ export function pruneStaleHooks(hooks, command, keepEvents) {
 }
 
 function main() {
-  // 1. Copy the script.
-  fs.mkdirSync(destDir, { recursive: true });
-  fs.copyFileSync(path.join(here, "feature-logger.mjs"), destScript);
-  try {
-    fs.chmodSync(destScript, 0o755);
-  } catch {
-    /* best effort */
+  // 1. Copy each script.
+  for (const inst of INSTALLS) {
+    fs.mkdirSync(path.dirname(inst.dest), { recursive: true });
+    fs.copyFileSync(path.join(toolsDir, inst.src), inst.dest);
+    try {
+      fs.chmodSync(inst.dest, 0o755);
+    } catch {
+      /* best effort */
+    }
+    log(`✓ Installed script → ${inst.dest}`);
   }
-  log(`✓ Installed script → ${destScript}`);
 
   // 2. Load existing settings.json (NOT launcher-settings.json).
   let settings = {};
@@ -97,24 +115,24 @@ function main() {
     log(`• No existing settings.json; creating ${settingsPath}`);
   }
 
-  // 3. Merge hook entries idempotently.
+  // 3. Merge + prune each command against its own event set.
   settings.hooks = settings.hooks || {};
   let changed = false;
-  for (const event of HOOK_EVENTS) {
-    settings.hooks[event] = Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [];
-    if (hasOurHook(settings.hooks[event])) {
-      log(`• ${event}: feature-logger hook already present — skipping`);
-    } else {
-      settings.hooks[event].push(hookEntry());
-      changed = true;
-      log(`✓ ${event}: added feature-logger hook`);
+  for (const inst of INSTALLS) {
+    for (const event of inst.events) {
+      settings.hooks[event] = Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [];
+      if (hasOurHook(settings.hooks[event], inst.command)) {
+        log(`• ${event}: ${inst.command} already present — skipping`);
+      } else {
+        settings.hooks[event].push(hookEntry(inst.command));
+        changed = true;
+        log(`✓ ${event}: added ${inst.command}`);
+      }
     }
-  }
-
-  // 3b. Prune our hook from any event we no longer register.
-  for (const event of pruneStaleHooks(settings.hooks, HOOK_COMMAND, HOOK_EVENTS)) {
-    changed = true;
-    log(`✓ ${event}: removed stale feature-logger hook`);
+    for (const event of pruneStaleHooks(settings.hooks, inst.command, inst.events)) {
+      changed = true;
+      log(`✓ ${event}: removed stale ${inst.command}`);
+    }
   }
 
   // 4. Write atomically.
